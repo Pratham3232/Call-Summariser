@@ -79,6 +79,10 @@ CREATE INDEX idx_interactions_customer ON interactions(customer_id);
 CREATE INDEX idx_interactions_call_sid ON interactions(call_sid);
 CREATE INDEX idx_interactions_status ON interactions(status);
 
+-- v2 additions are applied via data/migrations/001_postcall_v2.sql,
+-- which is mounted as /docker-entrypoint-initdb.d/02-postcall-v2.sql in
+-- docker-compose.yml so it runs automatically after this file.
+
 -- Seed data: sample interactions for testing
 -- (Uses fixed UUIDs for reproducibility)
 

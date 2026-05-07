@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:16
@@ -12,6 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./data/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./data/migrations/001_postcall_v2.sql:/docker-entrypoint-initdb.d/02-postcall-v2.sql
 
   redis:
     image: redis:7-alpine
