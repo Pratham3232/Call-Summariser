@@ -52,11 +52,66 @@ class Settings:
     CIRCUIT_BREAKER_FREEZE_SECONDS: int = 1800
 
     # ── Post-call processing ──────────────────────────────────────────────────
-    # Single queue. Everything goes here. A "not interested" 10-second call
-    # and a confirmed rebook sit in the same line at the same priority.
+    # Legacy single-queue retained for backward compatibility with the v1 task
+    # name. v2 routes to lane-aware queues below.
     POSTCALL_CELERY_QUEUE: str = "postcall_processing"
     POSTCALL_MAX_RETRIES: int = 3
-    POSTCALL_RETRY_DELAY: int = 60  # Fixed delay — not exponential backoff
+    POSTCALL_RETRY_DELAY: int = 60
+
+    # ── v2: Lane-aware queues ────────────────────────────────────────────────
+    # Hot lane is for time-sensitive outcomes (bookings, escalations).
+    # Cold lane is for low-value or deferrable outcomes (not interested,
+    # already done) which can be processed when the global TPM has headroom.
+    POSTCALL_HOT_QUEUE: str = "postcall_hot"
+    POSTCALL_COLD_QUEUE: str = "postcall_cold"
+
+    # ── v2: Rate limiter ─────────────────────────────────────────────────────
+    # Sliding-window token bucket fill rates. Bucket capacity = rate * 1.0
+    # (one minute of headroom — same units as the provider's published limit).
+    LLM_BUDGET_RESERVED_FRACTION: float = float(
+        os.getenv("LLM_BUDGET_RESERVED_FRACTION", "0.6")
+    )
+    # Above the per-customer reservation, customers compete for this fraction
+    # of the global pool. Anything left over (1 - reserved - shared) is held
+    # back as a safety margin so a sudden spike from one customer cannot
+    # consume 100% of the provider limit.
+    LLM_BUDGET_SHARED_FRACTION: float = float(
+        os.getenv("LLM_BUDGET_SHARED_FRACTION", "0.3")
+    )
+
+    # ── v2: Recording poller ─────────────────────────────────────────────────
+    RECORDING_POLL_INITIAL_DELAY_SECONDS: int = int(
+        os.getenv("RECORDING_POLL_INITIAL_DELAY_SECONDS", "5")
+    )
+    RECORDING_POLL_MAX_ATTEMPTS: int = int(
+        os.getenv("RECORDING_POLL_MAX_ATTEMPTS", "8")
+    )
+    RECORDING_POLL_MAX_DELAY_SECONDS: int = int(
+        os.getenv("RECORDING_POLL_MAX_DELAY_SECONDS", "300")
+    )
+
+    # ── v2: Outbox / job runner ─────────────────────────────────────────────
+    JOB_VISIBILITY_TIMEOUT_SECONDS: int = int(
+        os.getenv("JOB_VISIBILITY_TIMEOUT_SECONDS", "120")
+    )
+    JOB_MAX_ATTEMPTS: int = int(os.getenv("JOB_MAX_ATTEMPTS", "8"))
+
+    # ── v2: Backpressure ─────────────────────────────────────────────────────
+    # Proportional backpressure replaces the binary 1800s freeze.
+    # admit_probability(util) = clamp(1 - max(0, util - SOFT) / (HARD - SOFT), 0, 1)
+    BACKPRESSURE_SOFT_THRESHOLD: float = float(
+        os.getenv("BACKPRESSURE_SOFT_THRESHOLD", "0.70")
+    )
+    BACKPRESSURE_HARD_THRESHOLD: float = float(
+        os.getenv("BACKPRESSURE_HARD_THRESHOLD", "0.95")
+    )
+
+    # ── v2: Alerts ──────────────────────────────────────────────────────────
+    ALERT_TPM_UTILISATION: float = float(os.getenv("ALERT_TPM_UTILISATION", "0.85"))
+    ALERT_QUEUE_DEPTH_HOT: int = int(os.getenv("ALERT_QUEUE_DEPTH_HOT", "1000"))
+    ALERT_RECORDING_DEAD_LETTERED: int = int(
+        os.getenv("ALERT_RECORDING_DEAD_LETTERED", "10")
+    )
 
 
 settings = Settings()
